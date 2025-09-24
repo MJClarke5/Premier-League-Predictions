@@ -26,10 +26,13 @@ library('zoo')
 Using 2025-2026 Premier League data - Updated Weekly
 
 ``` {r}
-prem_data <- read.csv("D:/Download/england-premier-league-matches-2018-to-2019-stats.csv", sep = ",")
+prem_data <- read.csv("C:/Users/mattc/Downloads/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
 
-prem_clean <- prem_data %>%
-  select()
+prem_clean <- prem_data
+
+#If wanting to shrink dataset
+#prem_clean <- prem_data %>%
+  #select()
 
 ```
 
@@ -150,9 +153,12 @@ prem_data_receipe.4 <- recipe(ThreeOrMore ~ Home.Team.Pre.Match.xG + Away.Team.P
 
 ``` {r}
 
-train_ou <- prem_data[1:271,]
-test_ou <- prem_data[272:380,]
+#train_ou <- prem_data[1:271,]
+#test_ou <- prem_data[272:380,]
 
+#Increase per week
+train_ou <- prem_data[1:50,]
+test_ou <- prem_data[51:61,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -165,7 +171,7 @@ knn_model <- nearest_neighbor(neighbors = tune("K")) %>% # Define K as a hyperpa
   set_mode("classification")
 
 knn_workflow <- workflow() %>%
-  add_recipe(prem_data_receipe.1) %>%
+  add_recipe(prem_data_receipe.2) %>%
   add_model(knn_model)
 
 #Doesn't work due to Nearest Neighbors not being able to be used in parameters()
@@ -199,12 +205,68 @@ predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
 
 results_knn <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.6, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
 
-results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
-  select()
-
+#results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
+#  select()
 results_knn %>%
-  select(home_team_name, away_team_name, predictedClass)
+  filter(status == "incomplete") %>%
+  select(timestamp,home_team_goal_count, away_team_goal_count)
+results_knn %>%
+  select(home_team_name, away_team_name, Game.Week, predictedClass)
 
+prediction <- predict(fit_knn, prem_data)
+
+pred <- prem_data %>%
+  mutate(PredictedClass = prediction$.pred_class) %>%
+  select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
+  filter(Game.Week == 6)
+
+pred
+
+write.csv(pred)
+```
+
+```{r}
+
+#2.5 Goals
+knn_model2 <- nearest_neighbor(neighbors = tune("K")) %>% # Define K as a hyperparameter to tune
+  set_engine("kknn") %>% # Define the method as KNN
+  set_mode("classification")
+
+knn_workflow2 <- workflow() %>%
+  add_recipe(prem_data_receipe.1) %>%
+  add_model(knn_model)
+
+knn_param2 <- extract_parameter_set_dials(knn_workflow) %>%
+  update(K = neighbors(c(1, 15)))
+
+# Then create the grid
+knn_grid2 <- grid_regular(knn_param, levels = 15) %>%
+  filter(K %% 2 == 1)
+
+
+best_k2 <- tune_grid(
+  knn_workflow,
+  resamples = vfold_cv(train_ou, v = 10),
+  grid = knn_grid,
+  metrics = metric_set(yardstick::accuracy) # Ensure accuracy is included in metrics
+  ) %>%
+  select_best(metric = "accuracy")
+
+knn_workflow2_final <- finalize_workflow(knn_workflow, best_k) # Finalize workflow using best k
+fit_knn2 <- fit(knn_workflow_final, data = train_ou)
+
+predicted_results_knn2 <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
+  pluck(2)
+
+results_knn2 <- predicted_results_knn %>%
+  bind_cols(test_ou, predictedProbability = .) %>%
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
+
+results_knn2 %>%
+  filter(status == "incomplete") %>%
+  select(timestamp,home_team_goal_count, away_team_goal_count)
+results_knn2 %>%
+  select(home_team_name, away_team_name, Game.Week, predictedClass)
 ```
