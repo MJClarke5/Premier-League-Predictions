@@ -157,8 +157,8 @@ prem_data_receipe.4 <- recipe(ThreeOrMore ~ Home.Team.Pre.Match.xG + Away.Team.P
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:50,]
-test_ou <- prem_data[51:61,]
+train_ou <- prem_data[1:60,]
+test_ou <- prem_data[61:70,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -270,3 +270,4 @@ results_knn2 %>%
 results_knn2 %>%
   select(home_team_name, away_team_name, Game.Week, predictedClass)
 ```
+
