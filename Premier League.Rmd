@@ -26,7 +26,7 @@ library('zoo')
 Using 2025-2026 Premier League data - Updated Weekly
 
 ``` {r}
-prem_data <- read.csv("C:/Users/mattc/Downloads/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
+prem_data <- read.csv("D:/Git-Folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
 
 prem_clean <- prem_data
 
@@ -88,21 +88,21 @@ prem_data <- calculate_avg(prem_data, "away_team_name", "away_team_possession", 
 ## Betting Targets
 
 ``` {r}
-prem_data <- prem_data %>% mutate(TwoOrMore = ifelse(total_goal_count >= 2, 1, 0))
+prem_data <- prem_data %>% mutate(Over2 = ifelse(total_goal_count >= 2.5, 1, 0))
 
-## mutate: new variable ’TwoOrMore’ (double) with 2 unique values and 0% NA
+## mutate: new variable ’Over2’ (double) with 2 unique values and 0% NA
 
-prem_data$TwoOrMore <- as.factor(prem_data$TwoOrMore)
-prem_data <- prem_data %>% mutate(ThreeOrMore = ifelse(total_goal_count >= 3, 1, 0))
+prem_data$Over2 <- as.factor(prem_data$Over2)
+prem_data <- prem_data %>% mutate(Over3 = ifelse(total_goal_count >= 3.5, 1, 0))
 
-## mutate: new variable ’ThreeOrMore’ (double) with 2 unique values and 0% NA
+## mutate: new variable ’Over3’ (double) with 2 unique values and 0% NA
 
-prem_data$ThreeOrMore <- as.factor(prem_data$ThreeOrMore)
-prem_data <- prem_data %>% mutate(FourOrMore = ifelse(total_goal_count >= 4, 1, 0))
+prem_data$Over3 <- as.factor(prem_data$Over3)
+prem_data <- prem_data %>% mutate(Over4 = ifelse(total_goal_count >= 4.5, 1, 0))
 
-## mutate: new variable ’FourOrMore’ (double) with 2 unique values and 0% NA
+## mutate: new variable ’Over4’ (double) with 2 unique values and 0% NA
 
-prem_data$FourOrMore <- as.factor(prem_data$FourOrMore)
+prem_data$Over4 <- as.factor(prem_data$Over4)
 
 ```
 
@@ -137,15 +137,15 @@ prem_data <- prem_data %>% mutate(OddsUnder25 = 1 / PercentUnder25)
 ``` {r}
 
 # Premier League 2024-25 Recipes
-prem_data_receipe.1 <- recipe(TwoOrMore ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
+prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
 
-prem_data_receipe.2 <- recipe(ThreeOrMore ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
+prem_data_receipe.2 <- recipe(Over3 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
   Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
 
-prem_data_receipe.3 <- recipe(FourOrMore ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
+prem_data_receipe.3 <- recipe(Over4 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
   average_goals_per_match_pre_match + average_corners_per_match_pre_match, data = prem_data)
 
-prem_data_receipe.4 <- recipe(ThreeOrMore ~ Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG, data = prem_data)
+prem_data_receipe.test <- recipe(Over3 ~ Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG, data = prem_data)
 
 ```
 
@@ -157,8 +157,8 @@ prem_data_receipe.4 <- recipe(ThreeOrMore ~ Home.Team.Pre.Match.xG + Away.Team.P
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:60,]
-test_ou <- prem_data[61:70,]
+train_ou <- prem_data[1:70,]
+test_ou <- prem_data[71:80,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -205,7 +205,7 @@ predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
 
 results_knn <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.8, 1, 0)))
 
 #results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
 #  select()
@@ -220,7 +220,7 @@ prediction <- predict(fit_knn, prem_data)
 pred <- prem_data %>%
   mutate(PredictedClass = prediction$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 6)
+  filter(Game.Week == 8)
 
 pred
 
@@ -262,12 +262,21 @@ predicted_results_knn2 <- predict(fit_knn, new_data = test_ou, type = "prob") %>
 
 results_knn2 <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.8, 1, 0)))
 
 results_knn2 %>%
   filter(status == "incomplete") %>%
   select(timestamp,home_team_goal_count, away_team_goal_count)
 results_knn2 %>%
   select(home_team_name, away_team_name, Game.Week, predictedClass)
+
+prediction2 <- predict(fit_knn2, prem_data)
+
+pred2 <- prem_data %>%
+  mutate(PredictedClass = prediction2$.pred_class) %>%
+  select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
+  filter(Game.Week == 8)
+
+pred2
 ```
 
