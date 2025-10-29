@@ -26,7 +26,7 @@ library('zoo')
 Using 2025-2026 Premier League data - Updated Weekly
 
 ``` {r}
-prem_data <- read.csv("D:/Git-Folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
+prem_data <- read.csv("C:/Users/mattc/git-folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
 
 prem_clean <- prem_data
 
@@ -157,8 +157,8 @@ prem_data_receipe.test <- recipe(Over3 ~ Home.Team.Pre.Match.xG + Away.Team.Pre.
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:80,]
-test_ou <- prem_data[81:90,]
+train_ou <- prem_data[1:90,]
+test_ou <- prem_data[91:100,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -220,7 +220,7 @@ prediction <- predict(fit_knn, prem_data)
 pred <- prem_data %>%
   mutate(PredictedClass = prediction$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 9)
+  filter(Game.Week == 10)
 
 pred
 
@@ -275,7 +275,7 @@ prediction2 <- predict(fit_knn2, prem_data)
 pred2 <- prem_data %>%
   mutate(PredictedClass = prediction2$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 9)
+  filter(Game.Week == 10)
 
 pred2
 ```
