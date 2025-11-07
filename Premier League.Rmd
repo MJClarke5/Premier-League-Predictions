@@ -26,7 +26,7 @@ library('zoo')
 Using 2025-2026 Premier League data - Updated Weekly
 
 ``` {r}
-prem_data <- read.csv("C:/Users/mattc/git-folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
+prem_data <- read.csv("D:/Git-Folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
 
 prem_clean <- prem_data
 
@@ -137,10 +137,10 @@ prem_data <- prem_data %>% mutate(OddsUnder25 = 1 / PercentUnder25)
 ``` {r}
 
 # Premier League 2024-25 Recipes
-prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, total_goal_count, data = prem_data)
+prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
 
 prem_data_receipe.2 <- recipe(Over3 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
-  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, total_goal_count, data = prem_data)
+  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
 
 prem_data_receipe.3 <- recipe(Over4 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
   average_goals_per_match_pre_match + average_corners_per_match_pre_match, data = prem_data)
@@ -157,8 +157,8 @@ prem_data_receipe.test <- recipe(Over3 ~ Home.Team.Pre.Match.xG + Away.Team.Pre.
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:90,]
-test_ou <- prem_data[91:100,]
+train_ou <- prem_data[1:100,]
+test_ou <- prem_data[101:110,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -220,7 +220,7 @@ prediction <- predict(fit_knn, prem_data)
 pred <- prem_data %>%
   mutate(PredictedClass = prediction$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 10)
+  filter(Game.Week == 11)
 
 pred
 
@@ -275,7 +275,7 @@ prediction2 <- predict(fit_knn2, prem_data)
 pred2 <- prem_data %>%
   mutate(PredictedClass = prediction2$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 10)
+  filter(Game.Week == 11)
 
 pred2
 ```
