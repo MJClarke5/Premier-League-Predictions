@@ -137,10 +137,14 @@ prem_data <- prem_data %>% mutate(OddsUnder25 = 1 / PercentUnder25)
 ``` {r}
 
 # Premier League 2024-25 Recipes
-prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
+prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match + HT_avgTarget + AT_avgTarget, data = prem_data) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
 
 prem_data_receipe.2 <- recipe(Over3 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
-  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data)
+  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match + HT_avgTarget + AT_avgTarget, data = prem_data) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
 
 prem_data_receipe.3 <- recipe(Over4 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
   average_goals_per_match_pre_match + average_corners_per_match_pre_match, data = prem_data)
@@ -205,7 +209,7 @@ predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
 
 results_knn <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.5, 1, 0)))
 
 #results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
 #  select()
@@ -262,7 +266,7 @@ predicted_results_knn2 <- predict(fit_knn, new_data = test_ou, type = "prob") %>
 
 results_knn2 <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.5, 1, 0)))
 
 results_knn2 %>%
   filter(status == "incomplete") %>%
@@ -280,3 +284,64 @@ pred2 <- prem_data %>%
 pred2
 ```
 
+```{r}
+
+# Define the model — tune neighbors (K)
+knn_model <- nearest_neighbor(neighbors = tune("neighbors")) %>%
+  set_engine("kknn") %>%
+  set_mode("classification")
+
+# Combine with your recipe
+knn_workflow <- workflow() %>%
+  add_recipe(prem_data_receipe.2) %>%
+  add_model(knn_model)
+
+# Define parameter grid
+knn_param <- extract_parameter_set_dials(knn_workflow) %>%
+  update(neighbors = neighbors(c(1, 15)))   # NOTE: use "neighbors", not "K"
+
+# Create a grid of odd K values
+knn_grid <- grid_regular(knn_param, levels = 15) %>%
+  filter(neighbors %% 2 == 1)
+
+# Cross-validation folds
+set.seed(123)
+cv_folds <- vfold_cv(train_ou, v = 10)
+
+# Tune K using cross-validation
+knn_tuned <- tune_grid(
+  knn_workflow,
+  resamples = cv_folds,
+  grid = knn_grid,
+  metrics = metric_set(accuracy)
+)
+
+# Select best K
+best_k <- select_best(knn_tuned, metric = "accuracy")
+
+# Finalize workflow
+knn_workflow_final <- finalize_workflow(knn_workflow, best_k)
+
+# Fit final model
+fit_knn <- fit(knn_workflow_final, data = train_ou)
+
+# Predict probabilities
+predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob")
+
+# Combine with test data
+results_knn <- predicted_results_knn %>%
+  bind_cols(test_ou) %>%
+  mutate(
+    predictedProbability = .pred_1,  # use your class label (check if .pred_1 or .pred_Over)
+    predictedClass = ifelse(predictedProbability > 0.5, 1, 0)
+  )
+
+# Example: filter incomplete matches
+results_knn %>%
+  filter(status == "incomplete") %>%
+  select(timestamp, home_team_goal_count, away_team_goal_count)
+
+# Example: view predictions
+results_knn %>%
+  select(home_team_name, away_team_name, Game.Week, predictedClass)
+```
