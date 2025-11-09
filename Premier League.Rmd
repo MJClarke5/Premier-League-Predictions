@@ -345,3 +345,75 @@ results_knn %>%
 results_knn %>%
   select(home_team_name, away_team_name, Game.Week, predictedClass)
 ```
+
+XGBoost
+
+```{r}
+library(tidymodels)
+library(xgboost)
+
+# Define the model with tunable hyperparameters
+xgb_model <- boost_tree(
+  trees = 1000,            # number of trees
+  tree_depth = tune(),     # max depth of each tree
+  learn_rate = tune(),     # shrinkage / eta
+  min_n = tune(),          # min observations in a node
+  loss_reduction = tune(), # gamma parameter
+  sample_size = tune(),    # subsample
+  mtry = tune()            # number of predictors per split
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+xgb_workflow <- workflow() %>%
+  add_model(xgb_model) %>%
+  add_recipe(prem_data_receipe.1)
+
+#Establishing grid
+set.seed(123)
+xgb_grid <- grid_space_filling(
+  tree_depth(range = c(2, 10)),
+  learn_rate(range = c(0.001, 0.3)),
+  min_n(range = c(2, 20)),
+  loss_reduction(range = c(0, 10)),
+  sample_size(range = c(0, 1)),
+  finalize(mtry(), train_ou),
+  size = 30
+)
+
+#Cross Validation
+set.seed(123)
+cv_folds <- vfold_cv(train_ou, v = 10)
+
+xgb_tuned <- tune_grid(
+  xgb_workflow,
+  resamples = cv_folds,
+  grid = xgb_grid,
+  metrics = metric_set(roc_auc, accuracy)
+)
+
+autoplot(xgb_tuned)
+
+#Selecting Best Model
+best_xgb <- select_best(xgb_tuned, metric = "roc_auc")
+
+xgb_final_wf <- finalize_workflow(xgb_workflow, best_xgb)
+fit_xgb <- fit(xgb_final_wf, data = train_ou)
+
+#Prediction
+pred_probs <- predict(fit_xgb, new_data = test_ou, type = "prob")
+pred_class <- predict(fit_xgb, new_data = test_ou, type = "class")
+
+results_xgb <- test_ou %>%
+  bind_cols(pred_probs) %>%
+  mutate(predictedClass = pred_class)
+
+results_xgb %>%
+  select(home_team_name, away_team_name, Game.Week, predictedClass)
+
+fit_xgb %>%
+  extract_fit_parsnip() %>%
+  vip::vip(num_features = 15)
+
+
+```
