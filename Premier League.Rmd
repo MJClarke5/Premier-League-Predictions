@@ -19,6 +19,7 @@ library('stringr')
 library('recipes')
 library('kknn')
 library('zoo')
+library('xgboost')
 ```
 
 ## Loading Data
@@ -26,7 +27,7 @@ library('zoo')
 Using 2025-2026 Premier League data - Updated Weekly
 
 ``` {r}
-prem_data <- read.csv("D:/Git-Folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
+prem_data <- read.csv("C:/Users/mattc/git-folder/Premier-League-Predictions/england-premier-league-matches-2025-to-2026-stats.csv", sep = ",")
 
 prem_clean <- prem_data
 
@@ -137,12 +138,12 @@ prem_data <- prem_data %>% mutate(OddsUnder25 = 1 / PercentUnder25)
 ``` {r}
 
 # Premier League 2024-25 Recipes
-prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match + HT_avgTarget + AT_avgTarget, data = prem_data) %>%
+prem_data_receipe.1 <- recipe(Over2 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg + Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, + HT_avgTarget + AT_avgTarget, data = prem_data) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors())
 
 prem_data_receipe.2 <- recipe(Over3 ~ odds_ft_home_team_win + odds_ft_away_team_win + odds_ft_draw + home_ppg + away_ppg+
-  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match + HT_avgTarget + AT_avgTarget, data = prem_data) %>%
+  Home.Team.Pre.Match.xG + Away.Team.Pre.Match.xG + average_goals_per_match_pre_match, data = prem_data) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors())
 
@@ -161,8 +162,8 @@ prem_data_receipe.test <- recipe(Over3 ~ Home.Team.Pre.Match.xG + Away.Team.Pre.
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:100,]
-test_ou <- prem_data[101:110,]
+train_ou <- prem_data[1:110,]
+test_ou <- prem_data[111:120,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -209,7 +210,7 @@ predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
 
 results_knn <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.5, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
 
 #results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
 #  select()
@@ -224,7 +225,7 @@ prediction <- predict(fit_knn, prem_data)
 pred <- prem_data %>%
   mutate(PredictedClass = prediction$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 11)
+  filter(Game.Week == 12)
 
 pred
 
@@ -266,7 +267,7 @@ predicted_results_knn2 <- predict(fit_knn, new_data = test_ou, type = "prob") %>
 
 results_knn2 <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.5, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.7, 1, 0)))
 
 results_knn2 %>%
   filter(status == "incomplete") %>%
@@ -279,12 +280,13 @@ prediction2 <- predict(fit_knn2, prem_data)
 pred2 <- prem_data %>%
   mutate(PredictedClass = prediction2$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 11)
+  filter(Game.Week == 12)
 
 pred2
 ```
 
 ```{r}
+###TEST###
 
 # Define the model — tune neighbors (K)
 knn_model <- nearest_neighbor(neighbors = tune("neighbors")) %>%
@@ -333,7 +335,7 @@ results_knn <- predicted_results_knn %>%
   bind_cols(test_ou) %>%
   mutate(
     predictedProbability = .pred_1,  # use your class label (check if .pred_1 or .pred_Over)
-    predictedClass = ifelse(predictedProbability > 0.5, 1, 0)
+    predictedClass = ifelse(predictedProbability > 0.8, 1, 0)
   )
 
 # Example: filter incomplete matches
@@ -351,6 +353,8 @@ XGBoost
 ```{r}
 library(tidymodels)
 library(xgboost)
+library(vip)
+library(skimr)
 
 # Define the model with tunable hyperparameters
 xgb_model <- boost_tree(
@@ -372,11 +376,11 @@ xgb_workflow <- workflow() %>%
 #Establishing grid
 set.seed(123)
 xgb_grid <- grid_space_filling(
-  tree_depth(range = c(2, 10)),
-  learn_rate(range = c(0.001, 0.3)),
-  min_n(range = c(2, 20)),
-  loss_reduction(range = c(0, 10)),
-  sample_size(range = c(0, 1)),
+  tree_depth(range = c(2, 6)),          # small dataset → shallow trees
+  learn_rate(range = c(0.01, 0.3)),     # avoid ultra-low LR
+  min_n(range = c(1, 10)),              # small dataset → small min_n
+  loss_reduction(range = c(0, 1)),      # gamma too high kills all splits
+  sample_size(range = c(0, 1)),       # avoid near-zero subsample
   finalize(mtry(), train_ou),
   size = 30
 )
@@ -415,5 +419,31 @@ fit_xgb %>%
   extract_fit_parsnip() %>%
   vip::vip(num_features = 15)
 
+#Testing the Results
+results_xgb$.pred_1
+results_xgb$.pred_0
+
+prep_recipe <- prep(prem_data_receipe.2)
+baked <- bake(prep_recipe, new_data = NULL)
+glimpse(baked)
+
+results_xgb$predictedClass
+skimr::skim(test_ou)
+table(train_ou$Over3)
+fit_xgb %>% extract_fit_parsnip() %>% .$fit
+
+baked_train <- bake(prep(prem_data_receipe.2), new_data = train_ou)
+baked_test  <- bake(prep(prem_data_receipe.2), new_data = test_ou)
+
+dim(baked_train)
+dim(baked_test)
+
+summary(baked_train)
+
+fit_xgb %>% extract_fit_parsnip() %>% str()
+
+## Output
+ColumnNames <- c("Home Team Name", "Away Team Name", "Game Week", "Prediction")
+data.frame(results_xgb$home_team_name,results_xgb$away_team_name,results_xgb$Game.Week, results_xgb$predictedClass)
 
 ```
