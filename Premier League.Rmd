@@ -162,8 +162,8 @@ prem_data_receipe.test <- recipe(Over3 ~ Home.Team.Pre.Match.xG + Away.Team.Pre.
 #test_ou <- prem_data[272:380,]
 
 #Increase per week
-train_ou <- prem_data[1:130,]
-test_ou <- prem_data[131:140,]
+train_ou <- prem_data[1:140,]
+test_ou <- prem_data[141:150,]
 ```
 
 ## Defining the Model and Extracting Results
@@ -210,7 +210,7 @@ predicted_results_knn <- predict(fit_knn, new_data = test_ou, type = "prob") %>%
 
 results_knn <- predicted_results_knn %>%
   bind_cols(test_ou, predictedProbability = .) %>%
-  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.6, 1, 0)))
+  mutate(predictedClass = as.factor(ifelse(predictedProbability > 0.8, 1, 0)))
 
 #results_knn %>% filter(Game.Week == c(27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38)) %>% 
 #  select()
@@ -225,7 +225,7 @@ prediction <- predict(fit_knn, prem_data)
 pred <- prem_data %>%
   mutate(PredictedClass = prediction$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 14)
+  filter(Game.Week == 15)
 
 pred
 
@@ -280,7 +280,7 @@ prediction2 <- predict(fit_knn2, prem_data)
 pred2 <- prem_data %>%
   mutate(PredictedClass = prediction2$.pred_class) %>%
   select(Game.Week, home_team_name, away_team_name, PredictedClass) %>%
-  filter(Game.Week == 14)
+  filter(Game.Week == 15)
 
 pred2
 ```
@@ -371,7 +371,7 @@ xgb_model <- boost_tree(
 
 xgb_workflow <- workflow() %>%
   add_model(xgb_model) %>%
-  add_recipe(prem_data_receipe.1)
+  add_recipe(prem_data_receipe.2)
 
 #Establishing grid
 set.seed(123)
